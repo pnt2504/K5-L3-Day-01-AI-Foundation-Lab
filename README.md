@@ -251,33 +251,18 @@ chuyển sang bản gốc trên UCI. Sau khi bỏ 403 tin trùng lặp còn 5.16
 
 Trên lời giải tham khảo, F1 của các model tụt từ khoảng 0,9 (test thường) xuống 0,4–0,7 trên bộ này. Học viên còn có thể thêm case của riêng mình (`MY_CASES`) để thử.
 
-## Chọn nhà cung cấp LLM API
+## LLM qua Router9
 
-Phần 4 không bắt buộc dùng OpenAI. Thêm key vào Colab → 🔑 **Secrets** (bật *Notebook access*), rồi sửa một dòng
-`LLM_PROVIDER = "..."` trong notebook:
+Phần 4 của bài làm này chỉ dùng **Router9**. Thêm `ROUTER9_API_KEY` vào Colab Secrets
+(bật Notebook access), hoặc đặt biến môi trường cùng tên trên máy cá nhân.
 
-| `LLM_PROVIDER` | Colab Secret | Model lớn / nhỏ mặc định | Cách gọi |
-| --- | --- | --- | --- |
-| `openai` (mặc định) | `OPENAI_API_KEY` | `gpt-6.1-terra` / `gpt-6-luna` | `call_openai` (OpenAI SDK) |
-| `anthropic` | `ANTHROPIC_API_KEY` | `claude-opus-5-5` / `claude-haiku-5-5` | `call_claude` (SDK chính thức `anthropic`) |
-| `gemini` | `GEMINI_API_KEY` | `gemini-3.8-flash` / `gemini-3.5-flash-lite` | `call_openai` + `base_url` Gemini (có gói miễn phí) |
-| `groq` | `GROQ_API_KEY` | `openai/gpt-oss-120b` / `openai/gpt-oss-20b` | `call_openai` + `base_url` Groq (có gói miễn phí) |
-| `openrouter` | `OPENROUTER_API_KEY` | `openai/gpt-6.1-terra` / `openai/gpt-6-luna` | `call_openai` + `base_url` OpenRouter |
-| `ollama` | — | `llama3.2:3b` / `qwen2.5:0.5b` | `call_openai` + `base_url` local (chạy trên máy cá nhân) |
-
-- Đúng như slide 21, phần lớn engine nói chuẩn **OpenAI-compatible API**, nên chỉ cần đổi `base_url`; hàm `call_openai` của
-  học viên (giữ chữ ký template) không đổi. Claude được gọi bằng SDK `anthropic` qua hàm có sẵn `call_claude`. Hàm `call_llm`
-  tự chọn đúng đường theo `LLM_PROVIDER`.
-- Tên model thay đổi nhanh. Nếu gặp lỗi *model not found*, chạy ô `list_models()` rồi sửa `PROVIDERS[...]`.
-- Model suy luận (Gemini 3, gpt-oss) và Claude cần `max_tokens` lớn hơn (512–1024) để còn chỗ cho phần "suy nghĩ"; bảng
-  `PROVIDERS` đã đặt sẵn.
-- Mỗi provider tắt/giảm phần "suy nghĩ" bằng tham số khác nhau (OpenAI `reasoning_effort="none"` + `max_completion_tokens`,
-  Groq `reasoning_effort="low"`, OpenRouter `reasoning.effort`). Cột `token_param` / `params` trong `PROVIDERS` ghi sẵn; hàm
-  `provider_kwargs(max_tokens)` trả về đúng bộ tham số, `call_openai` chỉ cần thêm `**provider_kwargs(max_tokens)`.
-- `gemini-2.5-pro` / `-flash` bị Google tắt ngày 01/12/2026, nên bảng dùng dòng Gemini 3.
-- Giá trong `PRICE_PER_1M` là giá tham khảo; model chưa có giá được tính 0 USD. Tự điền giá hiện hành nếu cần so chi phí.
-- Stress test có thêm phương án **4d. LLM + prompt phòng thủ** (`build_defended_prompt`): tin nhắn được đặt trong thẻ `<sms>` và
-  được coi là dữ liệu, không phải chỉ dẫn, để so với prompt thường trên nhóm *prompt injection*.
+- Endpoint: `https://router9--llmgate--q8cj86cbs7t7.code.run/v1`.
+- Model lớn / nhỏ: `cx/gpt-6.1-terra` / `cx/gpt-6-luna`.
+- Giữ tên hàm `call_openai` theo đề bài, nhưng SDK luôn nhận key và endpoint Router9 trực tiếp.
+- Chạy ô cấu hình → kiểm tra giả lập → zero-shot → few-shot. Few-shot lấy 2 spam và 2 ham từ TRAIN.
+- Cột USD là **ước lượng theo giá tham khảo bài lab**, chưa đối soát hóa đơn Router9.
+- Output LLM và phần tổng hợp cũ đã được xóa sau khi đổi code; chạy lại để lấy kết quả mới.
+- Stress test có thêm prompt phòng thủ trong `build_defended_prompt` để so sánh với prompt thường.
 
 ## Luật chơi: học để hiểu, không vibe code
 
@@ -357,7 +342,7 @@ git push
 | `⬜ ... chưa làm` / `NotImplementedError` | Bạn chưa hoàn thành TODO đó; các ô phía sau dùng hàm này sẽ lỗi theo. |
 | Kaggle tải lỗi | Notebook tự chuyển sang nguồn UCI. Nếu cả hai lỗi, kiểm tra Internet rồi **Run all** lại. |
 | Phần 3 encode chậm | Bình thường trên CPU (khoảng 1 phút). Có thể bật GPU T4. |
-| Phần 4 báo không có key | Thêm `OPENAI_API_KEY` vào Colab Secrets và bật *Notebook access*, rồi chạy lại ô API key. |
+| Phần 4 báo không có key | Thêm `ROUTER9_API_KEY` vào Colab Secrets và bật *Notebook access*, rồi chạy lại ô API key. |
 | `RateLimitError` | `retry_with_backoff` sẽ tự thử lại; nếu vẫn lỗi, chờ 1 phút rồi chạy lại ô đó. |
 | Ô sau lỗi vì thiếu biến | Chọn `Runtime → Restart session` rồi **Run all** từ đầu. |
 

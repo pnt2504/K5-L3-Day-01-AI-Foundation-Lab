@@ -6,7 +6,6 @@ matplotlib>=3.8,<4
 torch>=2.2,<3
 sentence-transformers>=3.0,<7
 kagglehub>=0.3,<2
-openai>=1.66,<4          # cần reasoning_effort / max_completion_tokens
-anthropic>=2.5,<3        # chỉ khi LLM_PROVIDER = "anthropic"
+openai>=1.66,<4          # SDK cho OpenAI-compatible API của Router9
 pytest>=8,<10
 jupyter

@@ -40,14 +40,14 @@ class RepositoryContractTest(unittest.TestCase):
         cls.code_source = "\n".join("".join(c.get("source", [])) for c in cls.code_cells)
         cls.all_source = "\n".join("".join(c.get("source", [])) for c in cls.cells)
 
-    def test_notebook_is_valid_and_has_no_stored_runtime_output(self):
+    def test_notebook_is_valid_with_optional_saved_output(self):
         self.assertEqual(self.notebook["nbformat"], 4)
         ids = [c.get("id") for c in self.cells]
         self.assertTrue(all(ids))
         self.assertEqual(len(ids), len(set(ids)))
         self.assertTrue(self.code_cells)
-        self.assertTrue(all(c.get("execution_count") is None for c in self.code_cells))
-        self.assertTrue(all(c.get("outputs") == [] for c in self.code_cells))
+        self.assertTrue(all(c.get("execution_count") is None or isinstance(c["execution_count"], int) for c in self.code_cells))
+        self.assertTrue(all(isinstance(c.get("outputs"), list) for c in self.code_cells))
 
     def test_python_cells_parse_after_removing_colab_magic(self):
         for i, cell in enumerate(self.code_cells):
@@ -58,13 +58,11 @@ class RepositoryContractTest(unittest.TestCase):
             with self.subTest(cell=i):
                 ast.parse(src)
 
-    def test_student_todos_are_present_and_unsolved(self):
+    def test_student_functions_are_present(self):
         for name in STUDENT_TODOS:
             with self.subTest(function=name):
                 self.assertRegex(self.code_source, rf"def {name}\(")
-        self.assertGreaterEqual(self.code_source.count("raise NotImplementedError"), len(STUDENT_TODOS) - 2)
-        self.assertIn('STUDENT_ID = ""', self.code_source)
-        self.assertIn('"baseline_accuracy": None', self.code_source)
+        self.assertRegex(self.code_source, r'STUDENT_ID\s*=\s*"[^"]+"')
 
     def test_no_solution_helpers_or_secrets_leak(self):
         self.assertNotIn("_FakeOpenAI", self.code_source)
@@ -102,19 +100,17 @@ class RepositoryContractTest(unittest.TestCase):
         for r in rows[:3] + rows[-3:]:
             self.assertIn(json.dumps(r["text"], ensure_ascii=False)[1:-1], self.code_source)
 
-    def test_llm_providers_and_claude_path(self):
-        for provider in ["openai", "anthropic", "gemini", "groq", "openrouter", "ollama"]:
-            with self.subTest(provider=provider):
-                self.assertIn(f'"{provider}":', self.code_source)
-        self.assertIn('LLM_PROVIDER = "openai"', self.code_source)
-        self.assertIn("def call_claude(", self.code_source)
-        self.assertIn("def call_llm(", self.code_source)
+    def test_router9_path_and_checks_are_present(self):
+        self.assertIn('LLM_PROVIDER = "router9"', self.code_source)
+        self.assertIn('"key": "ROUTER9_API_KEY"', self.code_source)
+        self.assertIn('"base_url": "https://router9--llmgate--q8cj86cbs7t7.code.run/v1"', self.code_source)
+        self.assertIn('OpenAI(api_key=key, base_url=CFG["base_url"]', self.code_source)
+        for name in ["call_openai", "call_llm", "parse_label", "llm_classify_batch", "_run_check"]:
+            self.assertEqual(len(re.findall(rf"^def {name}\(", self.code_source, re.MULTILINE)), 1)
         self.assertIn("def build_defended_prompt(", self.code_source)
-        claude_src = self.code_source.split("def call_claude(")[1].split("def call_llm(")[0]
-        self.assertIn("import anthropic", claude_src)
-        self.assertNotIn("temperature=", claude_src)
-        self.assertIn('fallbacks="default"', claude_src)
-        self.assertIn("anthropic", self.code_source.splitlines()[0] + (ROOT / "src" / "requirements.txt").read_text())
+        self.assertIn('_run_check("4.1 + 4.4 Router9 / llm_classify_batch", _t)', self.code_source)
+        self.assertNotIn("OPENAI_BASE_URL", self.code_source)
+        self.assertNotIn("def call_claude(", self.code_source)
 
 
 if __name__ == "__main__":
